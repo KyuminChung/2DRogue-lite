@@ -1,75 +1,63 @@
 using UnityEngine;
-using static GameManager;
 
 public class EnemySpawner : MonoBehaviour
 {
-    // 설정 값
-    [Header("References")]
-    public GameObject enemyPrefab;
-    public Camera mainCamera;
+    [Header("Prefabs")]
+    [SerializeField] private GameObject zombiePrefab;                   // 좀비
+    [SerializeField] private GameObject batPrefab;                      // 박쥐
 
     [Header("Spawn Timing")]
-    public float spawnInterval = 1.0f;      // 초기 생성 주기
-    public float minSpawnInterval = 0.2f;   // 최소 생성 주기
+    [SerializeField] private float spawnInterval = 2f;                  // 스폰 간격
 
-    [Header("Difficulty")]
-    public float difficultyInterval = 30f;  // 30초
-    public float spawnDecrease = 0.1f;      // 감소량
+    [Header("Spawn Area (world coords)")]                               // 화면 안 (X, Y)
+    [SerializeField] private float minX = -10f;
+    [SerializeField] private float maxX = 10f;
+    [SerializeField] private float minY = -5f;
+    [SerializeField] private float maxY = 5f;
 
-    // 내부 계산
-    private float spawnTimer = 0f;  // 마지막 적 생성 이후 경과 시간
-    private float difficultyTimer = 0f; // 마지막 난이도 상승 이후 경과 시간
+    [Header("Outside offsets")]                                         // 화면 밖 (X, Y)
+    [SerializeField] private float topY = 6f;
+    [SerializeField] private float bottomY = -6f;
+    [SerializeField] private float leftX = -11f;
+    [SerializeField] private float rightX = 11f;
+
+    [Range(0f, 1f)]                                                     // 스폰 확률
+    [SerializeField] private float zombieRatio = 0.8f; // 8:2
+
+    private float t;                                                    // 마지막 스폰 이후 경과 시간
 
     void Update()
     {
-        // 게임 Play 상태가 아니면 멈춤
-        if (GameManager.Instance.currentState != GameState.Play)
-            return;
-        // 프레임마다 시간 누적
-        spawnTimer += Time.deltaTime;
-        difficultyTimer += Time.deltaTime;
-
-        // =================   적 생성  =================
-        if (spawnTimer >= spawnInterval)
-        {
-            SpawnEnemy();
-            spawnTimer = 0f;
-        }
-
-        // ================= 난이도 상승 =================
-        if (difficultyTimer >= difficultyInterval)
-        {
-            // (생성 이후 경과 시간 - 감소량), 최소 생성 주기 중 큰거  
-            spawnInterval = Mathf.Max(
-                minSpawnInterval,
-                spawnInterval - spawnDecrease
-            );
-
-            difficultyTimer = 0f;
-        }
+        t += Time.deltaTime;                                            // 시간 누적
+        if (t < spawnInterval) return;                                  // 리스폰 시간 안지났으면 종료
+        t = 0f;                                                         // 타이머 리셋
+        SpawnOne();                                                     // 적 스폰
     }
 
-    void SpawnEnemy()
+    private void SpawnOne()                                             // 스폰 
     {
-        Vector2 spawnPos = GetRandomPosition();
-        Instantiate(enemyPrefab, spawnPos, Quaternion.identity);
+        if (zombiePrefab == null || batPrefab == null) return;     
+        
+        Vector2 pos = GetRandomOutsidePosition();                       // 화면 밖 랜덤 위치 계산(스폰 위치)
+        // 좀비/박쥐 확률로 선택
+        GameObject prefab = (Random.value < zombieRatio) ? zombiePrefab : batPrefab; 
+        Instantiate(prefab, pos, Quaternion.identity);                  // 선택된 적을 스폰 위치에 생성
     }
-    Vector2 GetRandomPosition()
+
+    private Vector2 GetRandomOutsidePosition()                          // 랜덤 위치 계산 
     {
-        int side = Random.Range(0, 4);
+        int side = Random.Range(0, 4);                                  // 0:위 1:아래 2:왼쪽 3:오른쪽
 
         switch (side)
         {
             case 0: // 위
-                return new Vector2(Random.Range(-10f, 10f), 6f);
+                return new Vector2(Random.Range(minX, maxX), topY);
             case 1: // 아래
-                return new Vector2(Random.Range(-10f, 10f), -6f);
+                return new Vector2(Random.Range(minX, maxX), bottomY);
             case 2: // 왼쪽
-                return new Vector2(-11f, Random.Range(-5f, 5f));
-            case 3: // 오른쪽
-                return new Vector2(11f, Random.Range(-5f, 5f));
+                return new Vector2(leftX, Random.Range(minY, maxY));
+            default: // 오른쪽
+                return new Vector2(rightX, Random.Range(minY, maxY));
         }
-
-        return Vector2.zero;
     }
 }
